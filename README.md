@@ -1,34 +1,31 @@
 # expression
-expression string to value
+expression.c C code for string expression to value
+
 Three functions:
 
-status = evaluate_d_expression(expr, &ansd);
-
-status = evaluate_l_expression(expr, &ansl);
-
-status = evaluate_ll_expression(expr, &ansll);
+      status = evaluate_d_expression(expr, &ansd);
+      status = evaluate_l_expression(expr, &ansl);
+      status = evaluate_ll_expression(expr, &ansll);
 
 status will be either 0 for good and the answer will be placed in a variable
 
-char* expr; // input
+      char* expr; // input
 
-// output, one of 
+      // output, one of 
 
-double ansd;
+      double ansd;
+      int ansl;
+      long long ansll;
 
-int ansl;
+Or if a failure (bad expression) then status will be 2 for unbalanced parens, 3 for exceded recursion depth maximum (can set using a #define near the top of the file, currently set to 10) or 1000+n where n is the character position of the error token. The two integer versions are just a wrapper around the double version, which then uses lrint and llrint to round to an integer. 
 
-long long ansll;
+It also contans 2 functions at the bottom, main and etimer which are used to test the program, either interactively or to time an expression run N times. To use as a library, remove the static declaration from the above 3 functions, and compile:
 
-Or if a failure (bad expression) then status will be 2 for unbalanced parens, or 1000+n where n is the character position of the error token. The two integer versions are just a wrapper around the double version, which then uses lrint and llrint to round to an integer. 
+      gcc -O2 -o testexpr expression.c  -lm
 
-It also contans 2 function at the bottom, main and etimer which are used to test the program, either interactively or to time an expression run N times. To use as a library, remove the static declaration from the above 3 functions, and compile:
+Or to include the debugging trace, used in the interactive run mode (included with the test main) add the -D Debug
 
-   gcc -O2 -o testexpr expression.c  -lm
-
-Or to include the debugging trace, used in the interactive run mode (including the test main) add the -D Debug
-
-   gcc -D Debug  -O2 -o testexpr expression.c  -lm
+      gcc -D Debug  -O2 -o testexpr expression.c  -lm
 
 run testexpr with no args to see the command usage.
 
