@@ -31,3 +31,10 @@ run testexpr with no args to see the command usage.
 
 The main and timer code are supported only on linux, however the rest of the code can also run on windows. 
 
+The expression currently support ()'s + - * / % ^ ** operators (** and ^ are the same, exponentiation). Also supports functions, currently including abs, floor, int, sqrt, sin, cos, round. It's rather easy to add more functions, but they can only have one argument. Operators are a bit trickier to add, but if one studies the code, it's not all that difficult to add more.
+
+There are 2 routines that build up the parsing array data. One, set setupascii, builds the arrays. Once they're built, the routine dump_arrays(filename) can be used to output to a file (and stdout) the arrays as C code which can then be pasted back into the code. There's an #ifdef GENERATE_ARRAYS to see which version is used. The difference is that these arrays wouldn't need to be written to at runtime, so there'd be nothing written other than local variables on the stack, making the code a pure function. Before you can run dump_arrays, setupascii() has to be run.
+
+Note: The test main program can do the array setup and dump to a file, see the command line usasge.
+
+To add operators, would require some changes to those arrays, and so a new set of arrays would need to be built, and the GENERATE_ARRAYS option would need to be turned on. 
