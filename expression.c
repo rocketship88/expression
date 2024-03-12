@@ -346,14 +346,16 @@ static double mystrtod(char* stringIn, char** endp) {
         return (double)final_double;            
     }
 
-    // here we finish with an integer only
+	// here we finish with an integer part only, or we did the above
+	// combining of the int.frac parts in l and m, either way just check for -
 
     if ( isneg ) {
         l = -l;
     }
     return (double)l;
 }
-static double mystrtod_old(char* stringIn, char** endp) {
+#if 0
+static double mystrtod_old(char* stringIn, char** endp) { // this just for reference use to compare results between old and new versions
     char *s = stringIn;
     int isneg = 0;
     register INT_64  l = 0;
@@ -408,6 +410,7 @@ static double mystrtod_old(char* stringIn, char** endp) {
     }
     return (double)l;
 }
+#endif
 // --------------------------------------------------------
 /* 
 
@@ -765,7 +768,7 @@ functions are supported.
 */
 
 
-enum function_codes {eERROR=0,eABS,eINT,eSIN,eCOS, eROUND, eSQRT}; // return one of these for function or an error
+enum function_codes {eERROR=0,eABS,eINT,eSIN,eCOS, eROUND, eSQRT, eRAD, eFLOOR}; // return one of these for function or an error
 
 
 
@@ -785,7 +788,7 @@ static int afunc(char* stringIn, int* news) { // parse a function up to opening 
     int i;                  // count of chars not including spaces, limits what we write to buf
     char c;
     char* s = stringIn;
-    for (i=0; i<= 5 ; )  {
+    for (i=0; i<= 7 ; )  {
          c = *s;
          if (  c >= 'a' &&  c <= 'z') {
             *p++ = *s++;
@@ -818,7 +821,7 @@ static int afunc(char* stringIn, int* news) { // parse a function up to opening 
             break;
         case 'f':
             if ( mystrcmp(buf,"floor") == 0) {
-                return eINT;
+                return eFLOOR;
             }  
             break;
         
@@ -845,6 +848,9 @@ static int afunc(char* stringIn, int* news) { // parse a function up to opening 
         case 'r':
             if ( mystrcmp(buf,"round") == 0  ) {
                 return eROUND;
+            }  
+            if ( mystrcmp(buf,"rad") == 0  ) {
+                return eRAD;
             }  
             break;
         default:
@@ -883,14 +889,14 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
                                                                                                     void *address; // for debug
                                                                                                     long  pushed;
                                                                                             #endif
-        double val  ;
-        char   op   ; // if 'f' then check func
-        char   prec ;
+        double val  ; // the value of the current computation, either on the stack or in x
+        char   op   ; // this is one of the litteral operators, but could be any constant
+        char   prec ; // precedence level, currently 3 is the max, so really only need 4 of these
     } stack[5] = { 
                                                                                             #ifdef Debuga
                                                                                                 NULL, 0,
                                                                                             #endif
-    0.,0,0 }, *sp, x;
+    0.,0,0 }, *sp, x; // stack pointer and the active opperand we're building up 
                                                                                             #ifdef Debuga
                                                                                                 stack[0].address = (void *)&stack[0].address; // debug
                                                                                                 stack[1].address = (void *)&stack[1].address;
@@ -898,13 +904,13 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
                                                                                                 stack[3].address = (void *)&stack[3].address;
                                                                                                 stack[4].address = (void *)&stack[3].address;
                                                                                             #endif
-    double fval;
-    char* p;
-    char* s;
-    char c;
-    int news;
+    double fval; // the value of the argument of a function
+    char* p;     // pointer to input string text, next token after call to functrion arg or mystrtod
+    char* s;     // pointer to current location in the input string
+    char c;      // used to hold the current character, to avoid another *s
+    int news;    // used to compute the new s after seeing a function( 
     enum function_codes f;
-    char *fsave = stringIn;
+    char *fsave = stringIn; // the pointer of a function call name, in case of an error
 
     s  = stringIn;
     while (*s == ' ') s++; // skip whitespace
@@ -973,7 +979,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
             if (*s == ')')s++;
              
   
-             switch (f) { // do the corresponding function on our value
+             switch (f) { // do the corresponding function on our value HERE to add additional functions
     
                 case eABS:       
                     if ( fval < 0.0 ) {
@@ -981,18 +987,26 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
                     }
                     x.val = fval;
                     break;
-                case eINT:    x.val = floor(fval)     ; break;
+                case eINT:    
+					if ( fval < 0.0 ) {
+                		x.val = floor(fval + 1.0);
+					} else {
+                		x.val = floor(fval);
+					}
+                	break;
+                case eFLOOR: x.val = floor(fval)      ; break;                                  
                 case eSIN:    x.val = sin(fval);      ; break;
                 case eCOS:    x.val = cos(fval);      ; break;
                 case eSQRT:   x.val = sqrt(fval);     ; break;
                 case eROUND:  x.val = round(fval)     ; break;
-                default: s=fsave; goto error;    break; //Shouldn't ever happen
+                case eRAD:    x.val =fval * (3.141592653589793238462643/180.)     ; break;
+                default: s=fsave; goto error;    break; // syntax error
             }
 
 
         } else { // if not parens or a function, it must be a number
             char ch;
-            x.val = mystrtod(s, &p);
+            x.val = mystrtod(s, &p); // my own version, lots faster, don't know why however
 //           x.val = strtod(s, &p); // converts the text to a number, and tell us where it stopped
                                                                                                 #ifdef Debug
                                                                                                     printf("%*s  got next value  x.val=%.17g  characters scanned %d\n",level*5,".", x.val ,(int) (p-s) );
@@ -1093,7 +1107,7 @@ double  version of the evaluator
 
 
 
-static int evaluate_d_expression(char* stringIn ,double* result) { // evaluate an expression, 
+int evaluate_d_expression(char* stringIn ,double* result) { // evaluate an expression, 
     int status;
     if ( !Defined ) { // first time we define our letters and numbers
         setupascii();
@@ -1116,7 +1130,7 @@ INT_32  version of the evaluator
 */
 
 
-static int evaluate_l_expression(char* stringIn ,INT_32* result) { // evaluate an expression, 
+int evaluate_l_expression(char* stringIn ,INT_32* result) { // evaluate an expression, 
     int status;
     if ( !Defined ) { // first time we define our letters and numbers
         setupascii();
@@ -1136,7 +1150,7 @@ INT_64  version of the evaluator
 */
 
 
-static int evaluate_ll_expression(char* stringIn ,INT_64 * result) { // evaluate an expression, 
+int evaluate_ll_expression(char* stringIn ,INT_64 * result) { // evaluate an expression, 
     int status;
     if ( !Defined ) { // first time we define our letters and numbers
         setupascii();
