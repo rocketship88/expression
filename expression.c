@@ -1,5 +1,5 @@
+//-my-c-file
 // expression.c
-
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -20,7 +20,7 @@ these arrays are used.
 
 */
 
-
+//#define Main yes // includes the main test program if defined
 
 // --------------------------------------------------------
 #define Debugxxx
@@ -931,7 +931,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
                                                                                             #endif
         double val  ; // the value of the current computation, either on the stack or in x
         char   op   ; // this is one of the litteral operators, but could be any constant
-        char   prec ; // precedence level, currently 3 is the max, so really only need 4 of these
+        char   prec ; // precedence level, currently 5 is the max
     } stack[6] = { 
                                                                                             #ifdef Debuga
                                                                                                 NULL, 0,
@@ -976,7 +976,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
     if (c  == '+' || c == '-') { // check for initial unitary + or - 
         x.val = 0.0;
         x.op  = c;
-        x.prec = 5;  // give it highest priority
+        x.prec = 5;  // give it highest priority !!! note, need to change this if we add levels
         *sp++ = x;  // pretend we started with a 0, so it's 0+... or 0-...
         s++;
     
@@ -1060,7 +1060,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
             }
             ch = p[0];
             if ( ch == '+' || ch == '-' || ch == '*' || ch == '/'  || ch == ')' || ch == '&'  || ch == '|' || ch == '\0' || ch == '^' ||  ch == '<' || ch == '>' ||  ch == '%' || ch == '\n') {
-                // anything is ok, checking in order of likelihood
+                // anything is ok, checking in order of likelihood probably need another lookup array
             } else {
                 s++;
                 goto error;// return a status value that also returns the position of the error
@@ -1073,17 +1073,17 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
         while (*s == ' ') s++; // skip whitespace
         c = *s;
         if ( c == '*' ) {  // handle 2 char operators, ** << >>
-            if ( s[1] == '*' ) { // if we see ** then eat one * and pretend we got the ^
+            if ( s[1] == '*' ) { // we see ** then eat one more * and set the operator token
                 s++;
                 c = EXP_OPER;
             }
         } else if ( c == '<') {
-            if ( s[1] == '<' ) { // if we see ** then eat one * and pretend we got the ^
+            if ( s[1] == '<' ) { // ditto with <<
                 s++;
                 c = SHIFTLEFT_OPER;
             }
         } else if ( c == '>') {
-            if ( s[1] == '>' ) { // if we see ** then eat one * and pretend we got the ^
+            if ( s[1] == '>' ) { // and with >>
                 s++;
                 c = SHIFTRIGHT_OPER;
             }
@@ -1094,9 +1094,9 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
                                                                                                 #ifdef Debug
                                                                                                     printf("%*s  got next operator or terminal  [%c%c] \n",level*5,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
                                                                                                 #endif
-        switch (x.op = c) { // only 4 precendence levels so only need a stack of 4, but we allocate 5 for safety
-            case EXP_OPER:          x.prec = 5; break;
-            
+        switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 7 for safety
+            case EXP_OPER:          x.prec = 5; break; // don't forget with unary +/- we set the prec to a litteral 5, above
+                                                       // if we add more operators with more prec levels, make sure to adjust that too
             case '*':
             case '/':
             case '%':               x.prec = 4; break;
@@ -1241,7 +1241,7 @@ main test program to test for timing and debuggin all 3 varity's of expressions
 
 */
 
-
+#ifdef Main
 
 static double started =-1;
 
@@ -1499,3 +1499,4 @@ int main(int argc, char* argv[]) { // main on linux
     }
     return 0;
 }
+#endif
