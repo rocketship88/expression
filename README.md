@@ -44,3 +44,6 @@ There are 2 routines that build up the parsing array data. One, set setupascii, 
 Note: The test main program can do the array setup and dump to a file, see the command line usasge.
 
 To add operators, would require some changes to those arrays, and so a new set of arrays would need to be built, and the GENERATE_ARRAYS option can be turned on during testing. Once a new set is built, one use the built in main to dump out a new set of the arrays with their initializers to replace the current set in the program.  
+
+The algorithm used herein was originally found in an answer to a question posted here: https://stackoverflow.com/questions/60246999/is-there-any-c-function-that-can-evalute-a-string-expression-defined-in-the-stan
+
