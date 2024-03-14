@@ -35,7 +35,7 @@ With the built in main() run testexpr with no args to see the command usage.
 
 The main and timer code are supported only on linux, however the rest of the code can also run on windows. 
 
-The expression currently support ()'s + - * / % ^ ** & ^ |operators (& and | are bitwise and or, ^ is exclusive or, ** is exponention). Also supports functions, currently including abs, floor, int, sqrt, sin, cos, round, and rad (degrees to radians). It's rather easy to add more functions, but they can only have one argument. Operators are a bit trickier to add, but if one studies the code, it's not all that difficult to add more.
+The expression currently support ()'s + - * / % ^ ** & ^ << >> |operators (& and | are bitwise and or, ^ is exclusive or, ** is exponention << left shift >> right shift). Also supports functions, currently including abs, floor, int, sqrt, sin, cos, round, and rad (degrees to radians). It's rather easy to add more functions, but they can only have one argument. Operators are a bit trickier to add, but if one studies the code, it's not all that difficult to add more.
 
 The evaluator uses recursion for ()'s and function()'s and there is a #define RECURSION_MAX to return an error if its limit is reached (currently set to 10). The amount of stack space per recursion level is output when run in debug mode (with the main program) and is of the order of 400 bytes, or 4k bytes maximum when set to 10.
 
