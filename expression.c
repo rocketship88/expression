@@ -735,8 +735,8 @@ static int eval0x( char* stringIn,int kind) { // quick check for unbalanced pare
             }
             continue;
         } else {
-            position = (int) (s - stringIn); // compute position of the error, return +1000, since unbal parens returns a 2
-            return position +1000;
+            position = (int) (s - stringIn); // compute position of the error, return +0x2000, since unbal parens returns a 2
+            return position +0x2000;
         }
         
     }
@@ -783,7 +783,7 @@ static int eval0( char* stringIn,int kind) {
             break;
 
 
-            default: return position +1000;
+            default: return position +0x2000;
             break;
         }
         
@@ -920,6 +920,9 @@ it can't be a float, so it calls the integer conversion. If it does
 run into the decimal point or the exponent, e, then it has to
 do some more computations. Still faster than strtod.
 
+Error codes returned in thestatus are, 0=ok, 2=unbalanced parens, 3=recursion depth exceeded
+Other errors are in hex, 0zxxx e.g. 0x1003 where the z, is 1,2, or 3 and xxx is the character
+position of the error. z=1 is general error, z=2 invalid character, e.g. $ or { z=3 bad function name
 */
 
 
@@ -951,7 +954,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
     int news;    // used to compute the new s after seeing a function( 
     enum function_codes f; 
     char *fsave = stringIn; // the pointer of a function call name, in case of an error
-    int status;
+    int status,error_code = 0x1000;
 
     s  = stringIn;
     while (*s == ' ') s++; // skip whitespace
@@ -994,7 +997,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
             x.val = evaluate_d(s + 1, &p,&status,level); // recursive call
             s = p;
             if (status != STATUS_OK) {
-                if ( status < 1000 ) {
+                if ( status < 0x1000 ) {
                     *thestatus = status;
                     return 0.0;
                 }
@@ -1005,6 +1008,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
             f = afunc(s,&news);               // functions are the only thing that has a-z letters
             fsave = s + 1;
             if ( f == eERROR ) {
+                error_code = 0x3000;
                 goto error;// return a status value that also returns the position of the error
             }
                                                                                             #ifdef Debug
@@ -1014,7 +1018,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
             fval = evaluate_d(s + 1, &p,&status,level); // evaluate what's in the parens, recursively
             s = p;
             if (status != STATUS_OK) {
-                if ( status < 1000 ) {
+                if ( status < 0x1000 ) {
                     *thestatus = status;
                     return 0.0;
                 }
@@ -1159,7 +1163,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
     return x.val;
 error:
     if (endp) *endp = (char*)s;
-    *thestatus = (int) ( s-stringIn) +1000;
+    *thestatus = (int) ( s-stringIn) +  error_code;
                                                                                                 #ifdef Debug
                                                                                                    printf("%*s  error return %d\n",level*5,".",*thestatus);
                                                                                                 #endif
@@ -1186,7 +1190,7 @@ int evaluate_d_expression(char* stringIn ,double* result) { // evaluate an expre
     status = eval0x(stringIn, 1); // quick syntax check for illegal characters and unbalanced parens
     //status = eval0 (stringIn, 1); // quick syntax check for illegal characters and unbalanced parens
     if (status  != 0 ) {
-        return status; // error codes, 2=unbalanced parens, 1000+ = error with pointer to problem +1000
+        return status; // error codes, 2=unbalanced parens, 0x1000+ = error with pointer to problem +0x1000
     }
     *result = evaluate_d(stringIn,NULL,&status,0); // now do the evaluate
     return status;
@@ -1209,7 +1213,7 @@ int evaluate_l_expression(char* stringIn ,INT_32* result) { // evaluate an expre
     status = eval0x(stringIn, 2); // quick syntax check for illegal characters and unbalanced parens
     //status = eval0 (stringIn, 2); // quick syntax check for illegal characters and unbalanced parens
     if (status  != 0 ) {
-        return status; // error codes, 2=unbalanced parens, 1000+ = error with pointer to problem +1000
+        return status; // error codes, 2=unbalanced parens, 0x1000+ = error with pointer to problem +0x1000
     }
     *result = (INT_32)lrint(evaluate_d(stringIn,NULL,&status,0)); // now do the evaluate
     return status;
@@ -1229,7 +1233,7 @@ int evaluate_ll_expression(char* stringIn ,INT_64 * result) { // evaluate an exp
     status = eval0x(stringIn, 2); // quick syntax check for illegal characters and unbalanced parens
     //status = eval0 (stringIn, 2); // quick syntax check for illegal characters and unbalanced parens
     if (status  != 0 ) {
-        return status; // error codes, 2=unbalanced parens, 1000+ = error with pointer to problem +1000
+        return status; // error codes, 2=unbalanced parens, 0x1000+ = error with pointer to problem +0x1000
     }
     *result = (INT_64)llrint(evaluate_d(stringIn,NULL,&status,0));; // now do the evaluate
     return status;
@@ -1419,7 +1423,7 @@ int main(int argc, char* argv[]) { // main on linux
          } // end while     
             
     } else { // --------------------------- debugging interactively ----------------
-        
+        char *reason;
          printf("\nInteractive mode output dec hex octal (q for quit):\n");
          if ( doint == 0) { // double
          
@@ -1435,14 +1439,24 @@ int main(int argc, char* argv[]) { // main on linux
                 if ( status == 0 ) {
                     printf(" -> %.17g  status=%d ok\n", ansd, status);
                 } else {
-                    if (status >= 1000) {
-                        printf("      %*s ^^^^ %d\n", status - 1000, "", status);
+                    if (status >= 0x1000) {
+                        if       ( status >= 0x3000 ) {
+                            reason = "invalid function";
+                        } else if ( status >= 0x2000 ) {
+                            reason = "invalid character";
+                        } else {
+                            reason = "grammar error";
+                        }
+                        printf("      %*s  ^^^^ %x = %s\n", status & 0xff, "", status,reason);
+                        continue;
                     } else if (status == ERROR_PAREN_NOT_BALANCED) {
                         printf("Unbalanced parens\n");
+                        continue;
                     } else if (status == ERROR_RECURSION) {
                         printf("exceeded recursion depth %d\n",RECURSION_MAX);
+                        continue;
                     }
-                    printf(" -> %.17g  status = %d  error\n", ansd, status);
+                    printf(" -> %.17g  status = %x  error @ %d\n", ansd, status,status & 0xff);
                     
                 }
             }
@@ -1457,16 +1471,26 @@ int main(int argc, char* argv[]) { // main on linux
                 }
                 status = evaluate_ll_expression(buf,&ansll);
                 if ( status == 0 ) {
-                    printf(" -> %lld %llx %llo status=%d ok\n", ansll,ansll,ansll, status);
+                    printf(" -> %lld %016llx %022llo status=%d ok\n", ansll,ansll,ansll, status);
                 } else {
-                    if (status >= 1000) {
-                        printf("      %*s ^^^^ %d\n", status - 1000, "", status);
+                    if (status >= 0x1000) {
+                        if       ( status >= 0x3000 ) {
+                            reason = "invalid function";
+                        } else if ( status >= 0x2000 ) {
+                            reason = "invalid character";
+                        } else {
+                            reason = "grammar error";
+                        }
+                        printf("      %*s  ^^^^ %x = %s\n", status & 0xff, "", status,reason);
+                        continue;
                     } else if (status == ERROR_PAREN_NOT_BALANCED) {
                         printf("Unbalanced parens\n");
+                        continue;
                     } else if (status == ERROR_RECURSION) {
                         printf("exceeded recursion depth %d\n",RECURSION_MAX);
+                        continue;
                     }
-                    printf(" -> %lld status = %d  error\n", ansll, status);
+                    printf(" -> %lld status = %x  error @ %d\n", ansll, status,status & 0xff);
                     
                 }
             }
@@ -1482,16 +1506,26 @@ int main(int argc, char* argv[]) { // main on linux
                 }
                 status = evaluate_l_expression(buf,&ansl);
                 if ( status == 0 ) {
-                    printf(" -> %d   %x    %o    status=%d ok\n", ansl,ansl,ansl, status);
+                    printf(" -> %d   %08x    %011o    status=%d ok\n", ansl,ansl,ansl, status);
                 } else {
-                    if (status >= 1000) {
-                        printf("      %*s ^^^^ %d\n", status - 1000, "", status);
+                    if (status >= 0x1000) {
+                        if       ( status >= 0x3000 ) {
+                            reason = "invalid function";
+                        } else if ( status >= 0x2000 ) {
+                            reason = "invalid character";
+                        } else {
+                            reason = "grammar error";
+                        }
+                        printf("      %*s  ^^^^ %x = %s\n", status & 0xff, "", status,reason);
+                        continue;
                     } else if (status == ERROR_PAREN_NOT_BALANCED) {
                         printf("Unbalanced parens\n");
+                        continue;
                     } else if (status == ERROR_RECURSION) {
                         printf("exceeded recursion depth %d\n",RECURSION_MAX);
+                        continue;
                     }
-                    printf(" -> %d status = %d  error\n", ansl, status);
+                    printf(" -> %d status = %x  error @ %d\n", ansl, status,status & 0xff);
                     
                 }
             }
