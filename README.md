@@ -33,7 +33,7 @@ To include as a library object, compile, but don't link to create expression.o, 
 
 A separate function is now included that will be precise with long long integers. It is enabled with the -D Separate_ll_function, as for example:
       
-      gcc -c -D Separate_ll_function O2  expression.c 
+      gcc -c -D Separate_ll_function -O2  expression.c 
       
 With the built in main() run testexpr with no args to see the command usage.
 
