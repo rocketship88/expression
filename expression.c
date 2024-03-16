@@ -11,6 +11,15 @@
 #include <stdint.h>
 
 #include <errno.h>
+#ifdef windows
+   #define INT_32 int32_t
+   #define INT_64 int64_t
+   #define DOUBLE_REAL long double
+#else
+   #define INT_32 int32_t
+   #define INT_64 long long
+   #define DOUBLE_REAL  double
+#endif
 
 /*
 
@@ -19,7 +28,7 @@ then that is done with a litteral. When checking if something is a valid number,
 these arrays are used. 
 
 */
-
+#define Separate_ll_functionxxx 1 // if defined, we will use the separate long long version for more precision
 //#define Main yes // includes the main test program if defined
 
 // --------------------------------------------------------
@@ -124,7 +133,7 @@ static unsigned char Numbersoct[128] = {
 
 #endif
 
-static double fractions_of_ten [25] = {1.0 , 
+static DOUBLE_REAL fractions_of_ten [25] = {1.0 , 
 0.1,
 0.01,
 0.001,
@@ -150,7 +159,7 @@ static double fractions_of_ten [25] = {1.0 ,
 0.00000000000000000000001,
 0.000000000000000000000001}; // total of 25
 
-static double multiples_of_ten [25] = {1.0 , 
+static DOUBLE_REAL multiples_of_ten [25] = {1.0 , 
 10.0,
 100.0,
 1000.0,
@@ -177,17 +186,9 @@ static double multiples_of_ten [25] = {1.0 ,
 
 
 
-static int nfractions = sizeof(fractions_of_ten) / sizeof (double);
-static int nmultiples = sizeof(multiples_of_ten) / sizeof (double);
+static int nfractions = sizeof(fractions_of_ten) / sizeof (DOUBLE_REAL);
+static int nmultiples = sizeof(multiples_of_ten) / sizeof (DOUBLE_REAL);
 
-#define windowsxxx 1
-#ifdef windows
-   #define INT_32 int32_t
-   #define INT_64 int64_t
-#else
-   #define INT_32 int32_t
-   #define INT_64 long long
-#endif
 
 /* 
 
@@ -234,14 +235,14 @@ static INT_64 Powll(INT_64 base,  INT_64 exp) {
 // --------------------------------------------------------
 /* 
 
-local version of string to double, since if it's an integer only, we can be so much faster,
+local version of string to DOUBLE_REAL, since if it's an integer only, we can be so much faster,
 But if there's an . or e/E we will be slower, but can process it now using our mystrtod function
 
 */
 static INT_32 mystol (char*, char**);
 static INT_64 mystoll(char*, char**);
 
-static double mystrtod(char* stringIn, char** endp) {
+static DOUBLE_REAL mystrtod(char* stringIn, char** endp) {
     char *s = stringIn;
     int isneg = 0;
     register INT_64  l = 0;
@@ -252,7 +253,7 @@ static double mystrtod(char* stringIn, char** endp) {
     int digits = 0; // count the number of digits after the decimal point
     INT_64 m = 0;   // acumulate the fractionsl value if any
     int exponent = 0; 
-    double final_double;
+    DOUBLE_REAL final_double;
 
     if ( *s == '-' ) {
         isneg = 1;
@@ -268,7 +269,7 @@ static double mystrtod(char* stringIn, char** endp) {
         if (*s == 'x' || *s == 'X' || *s == 'b' || *s == 'B' ||  *s == 'o' || *s == 'O' ||   *s == 'd'  || *s == 'D' ) {
             value = mystoll(stringIn,&p);
             if (endp) *endp = (char*)p;
-            return (double) value; 
+            return (DOUBLE_REAL) value; 
         }
     }
 
@@ -333,9 +334,9 @@ static double mystrtod(char* stringIn, char** endp) {
     } else { // combine the parts
 //      printf(" ok now wrap it up we got an l, an m, possible exponent and digits\n"  );
         if ( digits > 24 ) {
-            final_double = (double) l;
+            final_double = (DOUBLE_REAL) l;
         } else {
-            final_double = fractions_of_ten[digits] * (double) m + (double) l;
+            final_double = fractions_of_ten[digits] * (DOUBLE_REAL) m + (DOUBLE_REAL) l;
            
         }
         if ( isneg ) {
@@ -347,7 +348,7 @@ static double mystrtod(char* stringIn, char** endp) {
                 final_double = final_double * fractions_of_ten[-exponent];
             } else {
                 for (i=0; i< abs(exponent) ; i++) {
-                    final_double = final_double * (double) .1;
+                    final_double = final_double * (DOUBLE_REAL) .1;
                 }
             }
         } else if (exponent > 0) {int i; 
@@ -355,11 +356,11 @@ static double mystrtod(char* stringIn, char** endp) {
                 final_double = final_double * multiples_of_ten[exponent];
             } else {
                 for (i=0; i< exponent ; i++) {
-                    final_double = final_double * (double) 10.0;
+                    final_double = final_double * (DOUBLE_REAL) 10.0;
                 }
             }
         }
-        return (double)final_double;            
+        return (DOUBLE_REAL)final_double;           
     }
 
     // here we finish with an integer part only, or we did the above
@@ -368,10 +369,10 @@ static double mystrtod(char* stringIn, char** endp) {
     if ( isneg ) {
         l = -l;
     }
-    return (double)l;
+    return (DOUBLE_REAL)l;
 }
 #if 0
-static double mystrtod_old(char* stringIn, char** endp) { // this just for reference use to compare results between old and new versions
+static DOUBLE_REAL mystrtod_old(char* stringIn, char** endp) { // this just for reference use to compare results between old and new versions
     char *s = stringIn;
     int isneg = 0;
     register INT_64  l = 0;
@@ -393,7 +394,7 @@ static double mystrtod_old(char* stringIn, char** endp) { // this just for refer
         if (*s == 'x' || *s == 'X' || *s == 'b' || *s == 'B' ||  *s == 'o' || *s == 'O' ||   *s == 'd'  || *s == 'D' ) {
             value = mystoll(stringIn,&p);
             if (endp) *endp = (char*)p;
-            return (double) value; 
+            return (DOUBLE_REAL) value; 
         }
     }
 
@@ -424,7 +425,7 @@ static double mystrtod_old(char* stringIn, char** endp) { // this just for refer
     if ( isneg ) {
         l = -l;
     }
-    return (double)l;
+    return (DOUBLE_REAL)l;
 }
 #endif
 
@@ -906,11 +907,15 @@ static int afunc(char* stringIn, int* news) { // parse a function up to opening 
 Evaluate an expression, recursive decent parser, single left
 to right, with recursion for ()'s and fucntion()'s only
 
-Any remaining comments referring to 3 versions are incorrect. At
-first, the double was 2x slower than the integer versions because of
-strtod. After replacing it with mystrtod, the difference was < 5%
-and so we removed the 2 integer versions and instead just wrap
-this double version in  2 calls to evaluate_*_expression for l and ll.
+Originally we had 3 versions of the evaluator, for double, int, and long long
+Then we wrapped the double version for the 2 integer versions
+This works for 32 bit ints since double float has enough bits to make
+it precise. However, long long's were not working well with large values
+such as 2**63-1 was the same as 2**63-10 etc. 
+
+So, we have now restored the more precise version of the long long, but
+use a conditional compilation to decide if we include it or not.
+the macro is Separate_ll_function
 
 double floating version, biggest slowdown WAS the strtod function
 
@@ -918,7 +923,11 @@ So, we have our own version, which if there's no decimal point does an
 integer conversion. That also checks for a 0x, 0b, etc. and if found
 it can't be a float, so it calls the integer conversion. If it does
 run into the decimal point or the exponent, e, then it has to
-do some more computations. Still faster than strtod.
+do some more computations. Still faster than strtod. The increase in speed
+over strtod is still a puzzle since our method isn't all that clever. We
+just use integer math on both sides of the decimal point and later use a
+multiply by 10's table to addjust the fractional part. This reduces the
+amount of floating point we need to do.
 
 Error codes returned in thestatus are, 0=ok, 2=unbalanced parens, 3=recursion depth exceeded
 Other errors are in hex, 0zxxx e.g. 0x1003 where the z, is 1,2, or 3 and xxx is the character
@@ -926,13 +935,13 @@ position of the error. z=1 is general error, z=2 invalid character, e.g. $ or { 
 */
 
 
-static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level) {
+static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int level) {
     struct operand_d {
                                                                                             #ifdef Debuga
                                                                                                     void *address; // for debug
                                                                                                     long  pushed;
                                                                                             #endif
-        double val  ; // the value of the current computation, either on the stack or in x
+        DOUBLE_REAL val  ; // the value of the current computation, either on the stack or in x
         char   op   ; // this is one of the litteral operators, but could be any constant
         char   prec ; // precedence level, currently 5 is the max
     } stack[6] = { 
@@ -947,7 +956,7 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
                                                                                                 stack[3].address = (void *)&stack[3].address;
                                                                                                 stack[4].address = (void *)&stack[3].address;
                                                                                             #endif
-    double fval; // the value of the argument of a function
+    DOUBLE_REAL fval; // the value of the argument of a function
     char* p;     // pointer to input string text, next token after call to functrion arg or mystrtod
     char* s;     // pointer to current location in the input string
     char c;      // used to hold the current character, to avoid another *s
@@ -1128,11 +1137,11 @@ static double evaluate_d( char* stringIn, char** endp, int* thestatus,int level)
                                                                                                    printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%.17g\n",level*5,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
                                                                                                 #endif
              switch ((--sp)->op) {                       // unwind the stack of operations and accum the pending values
-                case '^':            x.val = (double) (llrint(sp->val) ^  llrint(x.val)); break;
-                case '&':            x.val = (double) (llrint(sp->val) &  llrint(x.val)); break;
-                case '|':            x.val = (double) (llrint(sp->val) |  llrint(x.val)); break;
-                case SHIFTLEFT_OPER: x.val = (double) (llrint(sp->val) << llrint(x.val)); break;
-                case SHIFTRIGHT_OPER: x.val =(double) (llrint(sp->val) >> llrint(x.val)); break;
+                case '^':            x.val = (DOUBLE_REAL) (llrint(sp->val) ^  llrint(x.val)); break;
+                case '&':            x.val = (DOUBLE_REAL) (llrint(sp->val) &  llrint(x.val)); break;
+                case '|':            x.val = (DOUBLE_REAL) (llrint(sp->val) |  llrint(x.val)); break;
+                case SHIFTLEFT_OPER: x.val = (DOUBLE_REAL) (llrint(sp->val) << llrint(x.val)); break;
+                case SHIFTRIGHT_OPER: x.val =(DOUBLE_REAL) (llrint(sp->val) >> llrint(x.val)); break;
                 case EXP_OPER: x.val = pow(sp->val, x.val); break;
                 case '%': x.val = fmod(sp->val, x.val); break;
                 case '*': x.val = sp->val * x.val; break;
@@ -1171,9 +1180,236 @@ error:
 } // end evaluate_d
 
  
+#ifdef Separate_ll_function
+static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level) {
+    struct operand_d {
+                                                                                            #ifdef Debuga
+                                                                                                    void *address; // for debug
+                                                                                                    long  pushed;
+                                                                                            #endif
+        INT_64 val  ; // the value of the current computation, either on the stack or in x
+        char   op   ; // this is one of the litteral operators, but could be any constant
+        char   prec ; // precedence level, currently 5 is the max
+    } stack[6] = { 
+                                                                                            #ifdef Debuga
+                                                                                                NULL, 0,
+                                                                                            #endif
+    0,0,0 }, *sp, x; // stack pointer and the active opperand we're building up 
+                                                                                            #ifdef Debuga
+                                                                                                stack[0].address = (void *)&stack[0].address; // debug
+                                                                                                stack[1].address = (void *)&stack[1].address;
+                                                                                                stack[2].address = (void *)&stack[2].address;
+                                                                                                stack[3].address = (void *)&stack[3].address;
+                                                                                                stack[4].address = (void *)&stack[3].address;
+                                                                                            #endif
+    INT_64 fval; // the value of the argument of a function
+    char* p;     // pointer to input string text, next token after call to functrion arg or mystrtod
+    char* s;     // pointer to current location in the input string
+    char c;      // used to hold the current character, to avoid another *s
+    int news;    // used to compute the new s after seeing a function( 
+    enum function_codes f; 
+    char *fsave = stringIn; // the pointer of a function call name, in case of an error
+    int status,error_code = 0x1000;
+
+    s  = stringIn;
+    while (*s == ' ') s++; // skip whitespace
+    c = *s;
+    sp = stack;
+    if ( ++level > RECURSION_MAX) {
+                                                                                            #ifdef Debug
+                                                                                                printf("%*s  evaluate_d: exceeded recursion depth %d at %s\n",level*5,".",level,s);
+                                                                                            #endif
+        *thestatus = ERROR_RECURSION;
+        return 0;
+    }
+                                                                                            #ifdef Debuga
+                                                                                                x.pushed = (long)0xbeefcafe; // debug
+                                                                                            #endif
+                                                                                            #ifdef Debug
+                                                                                                printf("%*s  evaluate_d: depth=%d /%3zd byt stringIn= [%s] \n",level*5,".",level ,(thestatus - &status)*sizeof(int),s);
+                                                                                            #endif
+    if (c  == '+' || c == '-') { // check for initial unitary + or - 
+        x.val = 0;
+        x.op  = c;
+        x.prec = 5;  // give it highest priority !!! note, need to change this if we add levels
+        *sp++ = x;  // pretend we started with a 0, so it's 0+... or 0-...
+        s++;
+                                                                                            #ifdef Debug
+                                                                                                printf("%*s  push a 0.0 with uniary [%c] op at prec(%d)\n", level * 5, ".", c, x.prec);
+                                                                                            #endif
+    }
+    while (1) {
+        while (*s == ' ') s++; // skip over spaces, we don't allow tabs here, much faster than using isspace
+        if (*s == '(') {       // opening parens, we know they are balanced, we did that check separately
+                                                                                            #ifdef Debug
+                                                                                                printf("%*s  opening parens  \n" ,level*5,".");
+                                                                                            #endif
+            x.val = evaluate_ll(s + 1, &p,&status,level); // recursive call
+            s = p;
+            if (status != STATUS_OK) {
+                if ( status < 0x1000 ) {
+                    *thestatus = status;
+                    return 0;
+                }
+                goto error; // return a status value that also returns the position of the error
+            }
+            if (*s == ')')s++;
+        } else if ( *s >= 'a' && *s <= 'z') { // a function is just a pair of ()'s with a value
+            f = afunc(s,&news);               // functions are the only thing that has a-z letters
+            fsave = s + 1;
+            if ( f == eERROR ) {
+                error_code = 0x3000;
+                goto error;// return a status value that also returns the position of the error
+            }
+                                                                                            #ifdef Debug
+                                                                                                printf("%*s  func begins with [%c%c...] recur... \n" ,level*5,".",s[0],s[1]);
+                                                                                            #endif
+            s = s+news;
+            fval = evaluate_ll(s + 1, &p,&status,level); // evaluate what's in the parens, recursively
+            s = p;
+            if (status != STATUS_OK) {
+                if ( status < 0x1000 ) {
+                    *thestatus = status;
+                    return 0;
+                }
+                goto error; // return a status value that also returns the position of the error
+            }
+            if (*s == ')')s++;
+             switch (f) { // do the corresponding function on our value HERE to add additional functions
+                case eABS:       
+                    if ( fval < 0 ) {
+                        fval = -fval;
+                    }
+                    x.val = fval;
+                    break;
+                //case eINT:    
+                    //if ( fval < 0 ) {
+                        //x.val = floor(fval + 1.0);
+                    //} else {
+                        //x.val = floor(fval);
+                    //}
+                    //break;
+                //case eFLOOR: x.val = floor(fval)      ; break;                                  
+                //case eSIN:    x.val = sin(fval);      ; break;
+                //case eCOS:    x.val = cos(fval);      ; break;
+                //case eSQRT:   x.val = sqrt(fval);     ; break;
+                //case eROUND:  x.val = round(fval)     ; break;
+                //case eRAD:    x.val =fval * (3.141592653589793238462643/180.)     ; break;
+                default: s=fsave; goto error;    break; // syntax error
+            }
 
 
-
+        } else { // if not parens or a function, it must be a number
+            char ch;
+            x.val = mystoll(s, &p); // my own version, lots faster, don't know why however
+//           x.val = strtod(s, &p); // converts the text to a number, and tell us where it stopped
+                                                                                                #ifdef Debug
+                                                                                                    printf("%*s  got next value  x.val=%lld  characters scanned %d\n",level*5,".", x.val ,(int) (p-s) );
+                                                                                                #endif
+            while (*p == ' ') {  // skipping whitespace but incrementing s as well
+                s++; p++;
+            }
+            ch = p[0];
+            if ( ch == '+' || ch == '-' || ch == '*' || ch == '/'  || ch == ')' || ch == '&'  || ch == '|' || ch == '\0' || ch == '^' ||  ch == '<' || ch == '>' ||  ch == '%' || ch == '\n') {
+                // anything is ok, checking in order of likelihood probably need another lookup array
+            } else {
+                s++;
+                goto error;// return a status value that also returns the position of the error
+            }
+            if ( s  == p && s[1] != '(') { // this means we have a bad function name
+                goto error;// return a status value that also returns the position of the error
+            }
+            s = p;
+        }
+        while (*s == ' ') s++; // skip whitespace
+        c = *s;
+        if ( c == '*' ) {  // handle 2 char operators, ** << >>
+            if ( s[1] == '*' ) { // we see ** then eat one more * and set the operator token
+                s++;
+                c = EXP_OPER;
+            }
+        } else if ( c == '<') {
+            if ( s[1] == '<' ) { // ditto with <<
+                s++;
+                c = SHIFTLEFT_OPER;
+            }
+        } else if ( c == '>') {
+            if ( s[1] == '>' ) { // and with >>
+                s++;
+                c = SHIFTRIGHT_OPER;
+            }
+        }
+        s++; // now we must have an operator, it's allways number op, or () op, or func() op
+                                                                                                #ifdef Debug
+                                                                                                    printf("%*s  got next operator or terminal  [%c%c] \n",level*5,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
+                                                                                                #endif
+        switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 7 for safety
+            case EXP_OPER:          x.prec = 5; break; // don't forget with unary +/- we set the prec to a litteral 5, above
+                                                       // if we add more operators with more prec levels, make sure to adjust that too
+            case '*':
+            case '/':
+            case '%':               x.prec = 4; break;
+            case '+':
+            case '-':               x.prec = 3; break;
+            case SHIFTLEFT_OPER:
+            case SHIFTRIGHT_OPER:   x.prec = 2; break;
+            case '&':
+            case '^': // exclusive or
+            case '|':               x.prec = 1; break;
+            case '\n':
+            case '\0':
+            case ')':               x.prec = 0; x.op = 0; s--; break; // here on close paren or null char or newline
+            default:  goto error; // here on a non valid operator and return a status value that also returns the position of the error
+        }
+                                                                                                #ifdef Debuga
+                                                                                                        x.address = NULL;
+                                                                                                #endif
+        while (sp > stack && x.prec <= sp[-1].prec) { 
+                                                                                                #ifdef Debug
+                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%lld\n",level*5,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
+                                                                                                #endif
+             switch ((--sp)->op) {                       // unwind the stack of operations and accum the pending values
+                case '^':            x.val = (INT_64) ((sp->val) ^  (x.val)); break;
+                case '&':            x.val = (INT_64) ((sp->val) &  (x.val)); break;
+                case '|':            x.val = (INT_64) ((sp->val) |  (x.val)); break;
+                case SHIFTLEFT_OPER: x.val = (INT_64) ((sp->val) << (x.val)); break;
+                case SHIFTRIGHT_OPER: x.val =(INT_64) ((sp->val) >> (x.val)); break;
+                case EXP_OPER: x.val = Powll(sp->val, x.val); break;
+                case '%': x.val = sp->val % x.val;break;
+                case '*': x.val = sp->val * x.val; break;
+                case '/': x.val = sp->val / x.val; break;
+                case '+': x.val = sp->val + x.val; break;
+                case '-': x.val = sp->val - x.val; break;
+            }
+                                                                                                #ifdef Debug
+                                                                                                   printf("%*s  stack pop opcode (%c) sp->val=%lld    new value of x.val=%lld\n",level*5,".",sp[0].op,sp->val ,x.val);
+                                                                                                    #ifdef Debuga
+                                                                                                       sp[0].pushed = 0;
+                                                                                                       sp[0].address = &sp[0];
+                                                                                                    #endif
+                                                                                                #endif
+        }
+        if (!x.op) break;
+        *sp++ = x;
+                                                                                                #ifdef Debug
+                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%lld x.op (%c) \n",level*5,".", (sp - stack),x.val, x.op   ); 
+                                                                                                #endif
+    }
+    if (endp) *endp = (char*)s;
+    *thestatus = 0;
+                                                                                                #ifdef Debug
+                                                                                                   printf("%*s  done return value x.val=%lld\n",level*5,".",x.val);
+                                                                                                #endif
+    return x.val;
+error:
+    if (endp) *endp = (char*)s;
+    *thestatus = (int) ( s-stringIn) +  error_code;
+                                                                                                #ifdef Debug
+                                                                                                   printf("%*s  error return %d\n",level*5,".",*thestatus);
+                                                                                                #endif
+    return 0;
+} // end evaluate_ll
+#endif
 /* 
 
 double  version of the evaluator
@@ -1182,7 +1418,7 @@ double  version of the evaluator
 
 
 
-int evaluate_d_expression(char* stringIn ,double* result) { // evaluate an expression, 
+int evaluate_d_expression(char* stringIn ,DOUBLE_REAL* result) { // evaluate an expression, 
     int status;
     if ( !Defined ) { // first time we define our letters and numbers
         setupascii();
@@ -1235,7 +1471,11 @@ int evaluate_ll_expression(char* stringIn ,INT_64 * result) { // evaluate an exp
     if (status  != 0 ) {
         return status; // error codes, 2=unbalanced parens, 0x1000+ = error with pointer to problem +0x1000
     }
+#ifdef Separate_ll_function
+    *result = evaluate_ll(stringIn,NULL,&status,0); // now do the evaluate, lost too much precision converting from double
+#else
     *result = (INT_64)llrint(evaluate_d(stringIn,NULL,&status,0));; // now do the evaluate
+#endif    
     return status;
 }
 
