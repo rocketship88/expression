@@ -1,4 +1,3 @@
-//-my-c-file
 // expression.c
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
@@ -11,15 +10,25 @@
 #include <stdint.h>
 
 #include <errno.h>
+//#define windows 1
 #ifdef windows
    #define INT_32 int32_t
    #define INT_64 int64_t
-   #define DOUBLE_REAL long double
+   #define DOUBLE_REAL  double
 #else
    #define INT_32 int32_t
    #define INT_64 long long
    #define DOUBLE_REAL  double
 #endif
+
+
+// define these, either prior to including this file, or using -D xxxx on the gcc command line
+//#define Separate_ll_function  // if defined, we will use the separate long long version for more precision
+//#define Main yes              // includes the main test program if defined
+
+// --------------------------------------------------------
+//#define Debug  // Debug if set, enables a printf output of a trace
+//#define Debuga // Debuga if set, adds 2 members to the operand_d and operand_ll structs for debugging
 
 /*
 
@@ -28,12 +37,9 @@ then that is done with a litteral. When checking if something is a valid number,
 these arrays are used. 
 
 */
-#define Separate_ll_functionxxx 1 // if defined, we will use the separate long long version for more precision
-//#define Main yes // includes the main test program if defined
 
-// --------------------------------------------------------
-#define Debugxxx
-#define Debugaxxx
+
+
 
 #define NOT_IN_SET_7F  0x7f  //token value meaning not in the set
 #define DEC_PNT_7D     0x7d  //the decimal point
@@ -54,8 +60,9 @@ these arrays are used.
 #define ERROR_RECURSION 3
 #define STATUS_OK 0
 
+#ifndef RECURSION_MAX
 #define RECURSION_MAX 10 // maximum recursion depth
-
+#endif
 /*
 
 Token typing arrays. To return a value for an input character
@@ -248,7 +255,7 @@ static DOUBLE_REAL mystrtod(char* stringIn, char** endp) {
     register INT_64  l = 0;
     INT_64 value;
     register INT_64  code;
-    char * number_table; char *p;
+    unsigned char * number_table; char *p;
     
     int digits = 0; // count the number of digits after the decimal point
     INT_64 m = 0;   // acumulate the fractionsl value if any
@@ -442,7 +449,7 @@ static INT_64 mystoll(char* stringIn, char** endp) {
     int isneg = 0;
     register INT_64  l = 0;
     register INT_64  code,base;
-    char * number_table;
+    unsigned char * number_table;
 
     if ( *s == '-' ) {
         isneg = 1;
@@ -516,7 +523,7 @@ static INT_32 mystol(char* stringIn, char** endp) {
     int isneg = 0;
     register INT_32  l = 0;
     register INT_32  code,base;
-    char * number_table;
+    unsigned char * number_table;
 
     if ( *s == '-' ) {
         isneg = 1;
@@ -645,19 +652,19 @@ static void setupascii() { // this is our table creator used to tokenize values 
     
     for (i=0; i< 16 ; i++) { // these are table lookup for the 4 bases, so we don't have to do number - '0' to get the number from the ascii code
         if ( i < 2 ) {
-            Numbersbin[numbers[i]] = i; 
+            Numbersbin[numbers[i]] = (unsigned char) i; 
         }
         if ( i < 8 ) {
-            Numbersoct[numbers[i]] = i; 
+            Numbersoct[numbers[i]] = (unsigned char) i; 
         }
         if ( i < 10 ) {
-            Numbers[numbers[i]] = i;    
-            Numbersf[numbers[i]] = i;   // decimal point same as decimal, but allows a decimal point also
+            Numbers[numbers[i]] = (unsigned char) i;    
+            Numbersf[numbers[i]] = (unsigned char) i;   // decimal point same as decimal, but allows a decimal point also
         }
         if ( i < 16 ) {
-            Numbershex[numbers[i]] = i; // lowercase
+            Numbershex[numbers[i]] = (unsigned char) i; // lowercase
             if ( i > 9 ) {
-                Numbershex[numbers[i+6]] = i;   // lowercase
+                Numbershex[numbers[i+6]] = (unsigned char) i;   // lowercase
             }
         }
         
@@ -993,7 +1000,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
         s++;
     
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  push a 0.0 with uniary [%c] op at prec(%d)\n", level * 5, ".", c, x.prec);
+                                                                                                printf("%*s  push a 0.0 with unary [%c] op at prec(%d)\n", level * 5, ".", c, x.prec);
                                                                                             #endif
     }
     while (1) {
@@ -1182,7 +1189,7 @@ error:
  
 #ifdef Separate_ll_function
 static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level) {
-    struct operand_d {
+    struct operand_ll {
                                                                                             #ifdef Debuga
                                                                                                     void *address; // for debug
                                                                                                     long  pushed;
@@ -1235,7 +1242,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
         *sp++ = x;  // pretend we started with a 0, so it's 0+... or 0-...
         s++;
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  push a 0.0 with uniary [%c] op at prec(%d)\n", level * 5, ".", c, x.prec);
+                                                                                                printf("%*s  push a 0 with unary [%c] op at prec(%d)\n", level * 5, ".", c, x.prec);
                                                                                             #endif
     }
     while (1) {
