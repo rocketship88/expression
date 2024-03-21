@@ -1,3 +1,4 @@
+//-my-c-file
 // expression.c
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
@@ -330,8 +331,15 @@ static DOUBLE_REAL mystrtod(char* stringIn, char** endp) {
             break;
         } else if (code ==  SKIP_CHAR_7E ) { //just skip these
             continue;
-        } else {
-            l = l * 10 + code; // no hex or other base in decimal numbers
+        } else { INT_64 tempL;
+            tempL = l * 10;// no hex or other base in decimal numbers
+            if ( tempL < l ) {
+//              final_double = strtod(stringIn,endp);
+//              return final_double;
+                if (endp) *endp = stringIn; // indicate an error on overflow
+                return 0;
+            }
+            l =tempL + code;
         }
     }
 
@@ -492,10 +500,17 @@ static INT_64 mystoll(char* stringIn, char** endp) {
             break;
         } else if (code ==  SKIP_CHAR_7E ) { //just skip these
             continue;
-        } else {
+        } else {INT_64 tempL;
 //          l = (l<<3) +l +l + code; // times 10, but doesn't look faster, so don't use it
-            l = l * base + code;
+            tempL = l * base;
+            if ( tempL < l ) {
+//                l = strtoll(stringIn,endp,(int)base);
+//              return l;
+                if (endp) *endp = stringIn; // indicate an error on overflow
+                return 0;
         }
+            l = tempL + code;
+    }
     }
 
     
@@ -1075,6 +1090,9 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                                                                                                 #ifdef Debug
                                                                                                     printf("%*s  got next value  x.val=%.17g  characters scanned %d\n",level*5,".", x.val ,(int) (p-s) );
                                                                                                 #endif
+            if ( s == p ) {
+                goto error; // if we couldn't scan past anything, it was either garbage or overflow
+            }
             while (*p == ' ') {  // skipping whitespace but incrementing s as well
                 s++; p++;
             }
@@ -1313,6 +1331,9 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                                                                                                 #ifdef Debug
                                                                                                     printf("%*s  got next value  x.val=%lld  characters scanned %d\n",level*5,".", x.val ,(int) (p-s) );
                                                                                                 #endif
+            if ( s == p ) {
+                goto error; // if we couldn't scan past anything, it was either garbage or overflow
+            }
             while (*p == ' ') {  // skipping whitespace but incrementing s as well
                 s++; p++;
             }
@@ -1692,7 +1713,7 @@ int main(int argc, char* argv[]) { // main on linux
                         } else if ( status >= 0x2000 ) {
                             reason = "invalid character";
                         } else {
-                            reason = "grammar error";
+                            reason = "grammar error or bad number (maybe overflow)";
                         }
                         printf("      %*s  ^^^^ %x = %s\n", status & 0xff, "", status,reason);
                         continue;
@@ -1726,7 +1747,7 @@ int main(int argc, char* argv[]) { // main on linux
                         } else if ( status >= 0x2000 ) {
                             reason = "invalid character";
                         } else {
-                            reason = "grammar error";
+                            reason = "grammar error or bad number (maybe overflow)";
                         }
                         printf("      %*s  ^^^^ %x = %s\n", status & 0xff, "", status,reason);
                         continue;
@@ -1761,7 +1782,7 @@ int main(int argc, char* argv[]) { // main on linux
                         } else if ( status >= 0x2000 ) {
                             reason = "invalid character";
                         } else {
-                            reason = "grammar error";
+                            reason = "grammar error or bad number (maybe overflow)";
                         }
                         printf("      %*s  ^^^^ %x = %s\n", status & 0xff, "", status,reason);
                         continue;
