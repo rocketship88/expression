@@ -6,7 +6,7 @@
 #ifdef mycode
 
 #define Separate_ll_function
-#include "expression.h"
+#include "expression.c"
 
 int evaluate_ll_expression(char *,int64_t *); // prototypes
 int evaluate_d_expression(char*, double*);
