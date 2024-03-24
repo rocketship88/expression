@@ -1170,7 +1170,13 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                 case EXP_OPER: x.val = pow(sp->val, x.val); break;
                 case '%': x.val = fmod(sp->val, x.val); break;
                 case '*': x.val = sp->val * x.val; break;
-                case '/': x.val = sp->val / x.val; break;
+                case '/': 
+                if ( x.val == 0.0 ) {
+                    error_code = 0x4000; // divide by zero integer error
+                    goto error;
+                }
+                x.val = sp->val / x.val; 
+                break;
                 case '+': x.val = sp->val + x.val; break;
                 case '-': x.val = sp->val - x.val; break;
             }
@@ -1371,7 +1377,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                                                                                                 #ifdef Debug
                                                                                                     printf("%*s  got next operator or terminal  [%c%c] \n",level*5,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
                                                                                                 #endif
-        switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 7 for safety
+        switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 6 for safety
             case EXP_OPER:          x.prec = 5; break; // don't forget with unary +/- we set the prec to a litteral 5, above
                                                        // if we add more operators with more prec levels, make sure to adjust that too
             case '*':
@@ -1405,7 +1411,13 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                 case EXP_OPER: x.val = Powll(sp->val, x.val); break;
                 case '%': x.val = sp->val % x.val;break;
                 case '*': x.val = sp->val * x.val; break;
-                case '/': x.val = sp->val / x.val; break;
+                case '/': 
+                if ( x.val == 0 ) {
+                    error_code = 0x4000; // divide by zero integer error
+                    goto error;
+                }
+                x.val = sp->val / x.val; 
+                break;
                 case '+': x.val = sp->val + x.val; break;
                 case '-': x.val = sp->val - x.val; break;
             }
@@ -1708,7 +1720,9 @@ int main(int argc, char* argv[]) { // main on linux
                     printf(" -> %.17g  status=%d ok\n", ansd, status);
                 } else {
                     if (status >= 0x1000) {
-                        if       ( status >= 0x3000 ) {
+                        if       ( status >= 0x4000 ) {
+                            reason = "Divide by zero";
+                        } else if ( status >= 0x3000 ) {
                             reason = "invalid function";
                         } else if ( status >= 0x2000 ) {
                             reason = "invalid character";
@@ -1742,7 +1756,9 @@ int main(int argc, char* argv[]) { // main on linux
                     printf(" -> %lld %016llx %022llo status=%d ok\n", ansll,ansll,ansll, status);
                 } else {
                     if (status >= 0x1000) {
-                        if       ( status >= 0x3000 ) {
+                        if       ( status >= 0x4000 ) {
+                            reason = "Divide by zero";
+                        } else if ( status >= 0x3000 ) {
                             reason = "invalid function";
                         } else if ( status >= 0x2000 ) {
                             reason = "invalid character";
@@ -1777,7 +1793,9 @@ int main(int argc, char* argv[]) { // main on linux
                     printf(" -> %d   %08x    %011o    status=%d ok\n", ansl,ansl,ansl, status);
                 } else {
                     if (status >= 0x1000) {
-                        if       ( status >= 0x3000 ) {
+                        if       ( status >= 0x4000 ) {
+                            reason = "Divide by zero";
+                        } else if ( status >= 0x3000 ) {
                             reason = "invalid function";
                         } else if ( status >= 0x2000 ) {
                             reason = "invalid character";
