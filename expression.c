@@ -746,6 +746,9 @@ static int eval0x( char* stringIn,int kind) { // quick check for unbalanced pare
     register char* s = stringIn;
     register int code;
     for (;*s != '\0'; ) {
+        if ((*s & 0x80) != 0) {
+            goto error; // no chars over 0x7f
+        }
         code = Letters[*s++];
         if       ( code == 1 ) { // most will come through here
             continue;
@@ -758,6 +761,7 @@ static int eval0x( char* stringIn,int kind) { // quick check for unbalanced pare
             }
             continue;
         } else {
+error:
             position = (int) (s - stringIn); // compute position of the error, return +0x2000, since unbal parens returns a 2
             return position +0x2000;
         }
@@ -954,6 +958,7 @@ amount of floating point we need to do.
 Error codes returned in thestatus are, 0=ok, 2=unbalanced parens, 3=recursion depth exceeded
 Other errors are in hex, 0zxxx e.g. 0x1003 where the z, is 1,2, or 3 and xxx is the character
 position of the error. z=1 is general error, z=2 invalid character, e.g. $ or { z=3 bad function name
+z=4 divide by zero
 */
 
 
@@ -995,7 +1000,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
     
     if ( ++level > RECURSION_MAX) {
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  evaluate_d: exceeded recursion depth %d at %s\n",level*5,".",level,s);
+                                                                                                printf("%*s  evaluate_d: exceeded recursion depth %d at %s\n",level*3,".",level,s);
                                                                                             #endif
         *thestatus = ERROR_RECURSION;
         return 0.0;
@@ -1005,7 +1010,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                                                                                                 x.pushed = (long)0xbeefcafe; // debug
                                                                                             #endif
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  evaluate_d: depth=%d /%3zd byt stringIn= [%s] \n",level*5,".",level ,(thestatus - &status)*sizeof(int),s);
+                                                                                                printf("%*s  evaluate_d: depth=%d /%3zd byt stringIn= [%s] \n",level*3,".",level ,(thestatus - &status)*sizeof(int),s);
                                                                                             #endif
     if (c  == '+' || c == '-') { // check for initial unitary + or - 
         x.val = 0.0;
@@ -1015,7 +1020,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
         s++;
     
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  push a 0.0 with unary [%c] op at prec(%d)\n", level * 5, ".", c, x.prec);
+                                                                                                printf("%*s  push a 0.0 with unary [%c] op at prec(%d)\n", level*3, ".", c, x.prec);
                                                                                             #endif
     }
     while (1) {
@@ -1023,7 +1028,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
         while (*s == ' ') s++; // skip over spaces, we don't allow tabs here, much faster than using isspace
         if (*s == '(') {       // opening parens, we know they are balanced, we did that check separately
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  opening parens  \n" ,level*5,".");
+                                                                                                printf("%*s  opening parens  \n" ,level*3,".");
                                                                                             #endif
             x.val = evaluate_d(s + 1, &p,&status,level); // recursive call
             s = p;
@@ -1043,7 +1048,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                 goto error;// return a status value that also returns the position of the error
             }
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  func begins with [%c%c...] recur... \n" ,level*5,".",s[0],s[1]);
+                                                                                                printf("%*s  func begins with [%c%c...] recur... \n" ,level*3,".",s[0],s[1]);
                                                                                             #endif
             s = s+news;
             fval = evaluate_d(s + 1, &p,&status,level); // evaluate what's in the parens, recursively
@@ -1088,7 +1093,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
             x.val = mystrtod(s, &p); // my own version, lots faster, don't know why however
 //           x.val = strtod(s, &p); // converts the text to a number, and tell us where it stopped
                                                                                                 #ifdef Debug
-                                                                                                    printf("%*s  got next value  x.val=%.17g  characters scanned %d\n",level*5,".", x.val ,(int) (p-s) );
+                                                                                                    printf("%*s  got next value  x.val=%.17g  characters scanned %d\n",level*3,".", x.val ,(int) (p-s) );
                                                                                                 #endif
             if ( s == p ) {
                 goto error; // if we couldn't scan past anything, it was either garbage or overflow
@@ -1130,7 +1135,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
         
         s++; // now we must have an operator, it's allways number op, or () op, or func() op
                                                                                                 #ifdef Debug
-                                                                                                    printf("%*s  got next operator or terminal  [%c%c] \n",level*5,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
+                                                                                                    printf("%*s  got next operator or terminal  [%c%c] \n",level*3,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
                                                                                                 #endif
         switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 7 for safety
             case EXP_OPER:          x.prec = 5; break; // don't forget with unary +/- we set the prec to a litteral 5, above
@@ -1159,7 +1164,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                                                                                                 #endif
         while (sp > stack && x.prec <= sp[-1].prec) { 
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%.17g\n",level*5,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
+                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%.17g\n",level*3,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
                                                                                                 #endif
              switch ((--sp)->op) {                       // unwind the stack of operations and accum the pending values
                 case '^':            x.val = (DOUBLE_REAL) (llrint(sp->val) ^  llrint(x.val)); break;
@@ -1172,7 +1177,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                 case '*': x.val = sp->val * x.val; break;
                 case '/': 
                 if ( x.val == 0.0 ) {
-                    error_code = 0x4000; // divide by zero integer error
+                    error_code = 0x4000; // divide by zero floating error
                     goto error;
                 }
                 x.val = sp->val / x.val; 
@@ -1181,7 +1186,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                 case '-': x.val = sp->val - x.val; break;
             }
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  stack pop opcode (%c) sp->val=%.17g    new value of x.val=%.17g\n",level*5,".",sp[0].op,sp->val ,x.val);
+                                                                                                   printf("%*s  stack pop opcode (%c) sp->val=%.17g    new value of x.val=%.17g\n",level*3,".",sp[0].op,sp->val ,x.val);
                                                                                                     #ifdef Debuga
                                                                                                        sp[0].pushed = 0;
                                                                                                        sp[0].address = &sp[0];
@@ -1192,20 +1197,20 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
 
         *sp++ = x;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%.17g x.op (%c) \n",level*5,".", (sp - stack),x.val, x.op   ); 
+                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%.17g x.op (%c) \n",level*3,".", (sp - stack),x.val, x.op   ); 
                                                                                                 #endif
     }
     if (endp) *endp = (char*)s;
     *thestatus = 0;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  done return value x.val=%.17g\n",level*5,".",x.val);
+                                                                                                   printf("%*s  done return value x.val=%.17g\n",level*3,".",x.val);
                                                                                                 #endif
     return x.val;
 error:
     if (endp) *endp = (char*)s;
     *thestatus = (int) ( s-stringIn) +  error_code;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  error return %d\n",level*5,".",*thestatus);
+                                                                                                   printf("%*s  error return %d\n",level*3,".",*thestatus);
                                                                                                 #endif
     return 0.0;
 } // end evaluate_d
@@ -1248,7 +1253,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
     sp = stack;
     if ( ++level > RECURSION_MAX) {
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  evaluate_d: exceeded recursion depth %d at %s\n",level*5,".",level,s);
+                                                                                                printf("%*s  evaluate_d: exceeded recursion depth %d at %s\n",level*3,".",level,s);
                                                                                             #endif
         *thestatus = ERROR_RECURSION;
         return 0;
@@ -1257,7 +1262,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                                                                                                 x.pushed = (long)0xbeefcafe; // debug
                                                                                             #endif
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  evaluate_d: depth=%d /%3zd byt stringIn= [%s] \n",level*5,".",level ,(thestatus - &status)*sizeof(int),s);
+                                                                                                printf("%*s  evaluate_d: depth=%d /%3zd byt stringIn= [%s] \n",level*3,".",level ,(thestatus - &status)*sizeof(int),s);
                                                                                             #endif
     if (c  == '+' || c == '-') { // check for initial unitary + or - 
         x.val = 0;
@@ -1266,14 +1271,14 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
         *sp++ = x;  // pretend we started with a 0, so it's 0+... or 0-...
         s++;
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  push a 0 with unary [%c] op at prec(%d)\n", level * 5, ".", c, x.prec);
+                                                                                                printf("%*s  push a 0 with unary [%c] op at prec(%d)\n", level*3, ".", c, x.prec);
                                                                                             #endif
     }
     while (1) {
         while (*s == ' ') s++; // skip over spaces, we don't allow tabs here, much faster than using isspace
         if (*s == '(') {       // opening parens, we know they are balanced, we did that check separately
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  opening parens  \n" ,level*5,".");
+                                                                                                printf("%*s  opening parens  \n" ,level*3,".");
                                                                                             #endif
             x.val = evaluate_ll(s + 1, &p,&status,level); // recursive call
             s = p;
@@ -1293,7 +1298,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                 goto error;// return a status value that also returns the position of the error
             }
                                                                                             #ifdef Debug
-                                                                                                printf("%*s  func begins with [%c%c...] recur... \n" ,level*5,".",s[0],s[1]);
+                                                                                                printf("%*s  func begins with [%c%c...] recur... \n" ,level*3,".",s[0],s[1]);
                                                                                             #endif
             s = s+news;
             fval = evaluate_ll(s + 1, &p,&status,level); // evaluate what's in the parens, recursively
@@ -1335,7 +1340,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
             x.val = mystoll(s, &p); // my own version, lots faster, don't know why however
 //           x.val = strtod(s, &p); // converts the text to a number, and tell us where it stopped
                                                                                                 #ifdef Debug
-                                                                                                    printf("%*s  got next value  x.val=%lld  characters scanned %d\n",level*5,".", x.val ,(int) (p-s) );
+                                                                                                    printf("%*s  got next value  x.val=%lld  characters scanned %d\n",level*3,".", x.val ,(int) (p-s) );
                                                                                                 #endif
             if ( s == p ) {
                 goto error; // if we couldn't scan past anything, it was either garbage or overflow
@@ -1375,7 +1380,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
         }
         s++; // now we must have an operator, it's allways number op, or () op, or func() op
                                                                                                 #ifdef Debug
-                                                                                                    printf("%*s  got next operator or terminal  [%c%c] \n",level*5,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
+                                                                                                    printf("%*s  got next operator or terminal  [%c%c] \n",level*3,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
                                                                                                 #endif
         switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 6 for safety
             case EXP_OPER:          x.prec = 5; break; // don't forget with unary +/- we set the prec to a litteral 5, above
@@ -1400,7 +1405,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                                                                                                 #endif
         while (sp > stack && x.prec <= sp[-1].prec) { 
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%lld\n",level*5,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
+                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%lld\n",level*3,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
                                                                                                 #endif
              switch ((--sp)->op) {                       // unwind the stack of operations and accum the pending values
                 case '^':            x.val = (INT_64) ((sp->val) ^  (x.val)); break;
@@ -1422,7 +1427,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                 case '-': x.val = sp->val - x.val; break;
             }
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  stack pop opcode (%c) sp->val=%lld    new value of x.val=%lld\n",level*5,".",sp[0].op,sp->val ,x.val);
+                                                                                                   printf("%*s  stack pop opcode (%c) sp->val=%lld    new value of x.val=%lld\n",level*3,".",sp[0].op,sp->val ,x.val);
                                                                                                     #ifdef Debuga
                                                                                                        sp[0].pushed = 0;
                                                                                                        sp[0].address = &sp[0];
@@ -1432,20 +1437,20 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
         if (!x.op) break;
         *sp++ = x;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%lld x.op (%c) \n",level*5,".", (sp - stack),x.val, x.op   ); 
+                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%lld x.op (%c) \n",level*3,".", (sp - stack),x.val, x.op   ); 
                                                                                                 #endif
     }
     if (endp) *endp = (char*)s;
     *thestatus = 0;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  done return value x.val=%lld\n",level*5,".",x.val);
+                                                                                                   printf("%*s  done return value x.val=%lld\n",level*3,".",x.val);
                                                                                                 #endif
     return x.val;
 error:
     if (endp) *endp = (char*)s;
     *thestatus = (int) ( s-stringIn) +  error_code;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  error return %d\n",level*5,".",*thestatus);
+                                                                                                   printf("%*s  error return %d\n",level*3,".",*thestatus);
                                                                                                 #endif
     return 0;
 } // end evaluate_ll
