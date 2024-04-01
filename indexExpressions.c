@@ -1,12 +1,14 @@
 // ################################## begin ######################################################
+// these are modifications to the tcl/tk 9.0b1 code to allow for expressions of various kinds w/o
+// needing to use the [expr {}] command
 
-#define mycode 1
+#define mycode // all the code is conditional on this def
 
 
 #ifdef mycode
 
 #define Separate_ll_function
-#include "expression.c"
+#include "expression.c" // this is best done inside tclGet.c since it's very small so won't conflict
 
 int evaluate_ll_expression(char *,int64_t *); // prototypes
 int evaluate_d_expression(char*, double*);
@@ -406,3 +408,211 @@ Tcl_WideInt *widePtr)       /* Location filled in with an integer
 
     return TCL_ERROR;
 }
+
+
+
+
+
+// This is the code for canvas coordinates AND other configuration numbers:
+// from tclObj.c
+
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Tcl_GetDoubleFromObj --
+ *
+ *	Attempt to return a double from the Tcl object "objPtr". If the object
+ *	is not already a double, an attempt will be made to convert it to one.
+ *----------------------------------------------------------------------
+ */
+
+int
+Tcl_GetDoubleFromObj(
+    Tcl_Interp *interp,         /* Used for error reporting if not NULL. */
+    Tcl_Obj *objPtr,	/* The object from which to get a double. */
+    double *dblPtr)	/* Place to store resulting double. */
+{
+
+    do {
+	if (objPtr->typePtr == &tclDoubleType) {
+	    if (isnan(objPtr->internalRep.doubleValue)) {
+		if (interp != NULL) {
+		    Tcl_SetObjResult(interp, Tcl_NewStringObj(
+			    "floating point value is Not a Number", -1));
+                    Tcl_SetErrorCode(interp, "TCL", "VALUE", "DOUBLE", "NAN",
+                            (void *)NULL);
+		}
+		return TCL_ERROR;
+	    }
+	    *dblPtr = (double) objPtr->internalRep.doubleValue;
+	    return TCL_OK;
+	}
+	if (objPtr->typePtr == &tclIntType) {
+	    *dblPtr = (double) objPtr->internalRep.wideValue;
+	    return TCL_OK;
+	}
+	if (objPtr->typePtr == &tclBignumType) {
+	    mp_int big;
+
+	    TclUnpackBignum(objPtr, big);
+	    *dblPtr = TclBignumToDouble(&big);
+	    return TCL_OK;
+	}
+    } while (SetDoubleFromAny(interp, objPtr) == TCL_OK);
+
+#define mycode
+#ifdef mycode 
+int evaluate_ll_expression(char *,int64_t *); // prototypes
+int evaluate_d_expression(char*, double*);
+//------------------------------------------------------------------------   
+    double answerd; int thestatus=1;
+	thestatus = evaluate_d_expression(TclGetString(objPtr),&answerd);
+	if ( thestatus == 0 ) {
+		*dblPtr = answerd;
+		return TCL_OK;
+	
+	}
+ //------------------------------------------------------------------------   
+#endif  //mycode
+    return TCL_ERROR;
+}
+
+
+
+// from tclGet.c  get ints and doubles, called by the above or those it calls
+
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Tcl_GetInt --
+ *
+ *	Given a string, produce the corresponding integer value.
+ *----------------------------------------------------------------------
+ */
+
+
+int evaluate_ll_expression(char *,int64_t *); // prototypes
+int evaluate_d_expression(char*, double*);
+int bugprintf(const char *,...);
+
+int
+Tcl_GetInt(
+    Tcl_Interp *interp,		/* Interpreter to use for error reporting. */
+    const char *src,		/* String containing a (possibly signed)
+				 * integer in a form acceptable to
+				 * Tcl_GetIntFromObj(). */
+    int *intPtr)		/* Place to store converted result. */
+{
+    Tcl_Obj obj;
+    int code;
+
+    obj.refCount = 1;
+    obj.bytes = (char *) src;
+    obj.length = strlen(src);
+    obj.typePtr = NULL;
+	
+#define mycode
+#ifdef mycode
+#define Separate_ll_function
+#include "expression.c"
+// ----------------------------------------------
+    long long answerll; int thestatus;
+	thestatus = evaluate_ll_expression(src,&answerll);
+	if ( thestatus == 0 ) {
+		*intPtr = (int)answerll;
+		code = TCL_OK;
+		goto outahere;
+	}
+	goto here2;
+        if       ( thestatus > 0x1000 ) {
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+                "\"%s\": bad number or mini-expression \n"
+                "%*s^^^^  code %x", src,thestatus& 0xff, "" ,thestatus));
+
+        } else if ( thestatus == 2  ) {
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+                "\"%s\": unbalanced parens \n" , src));
+        } else if ( thestatus == 3 ) {
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+                "\"%s\": exceded max paren depth \n", src));
+        }
+        Tcl_SetErrorCode(interp, "TCL", "VALUE", "NUMBER", (void *)NULL);
+    return TCL_ERROR;
+// ----------------------------------------------
+#endif// mycode
+    
+#ifdef mycode
+ here2:
+#endif // mycode
+
+    code = Tcl_GetIntFromObj(interp, &obj, intPtr);
+    
+#ifdef mycode
+ outahere:   
+#endif // mycode
+
+    if (obj.refCount > 1) {
+	Tcl_Panic("invalid sharing of Tcl_Obj on C stack");
+    }
+    TclFreeInternalRep(&obj);
+    return code;
+}
+
+// also in tclGet.c
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Tcl_GetDouble --
+ *
+ *	Given a string, produce the corresponding double-precision
+ *	floating-point value.
+ *----------------------------------------------------------------------
+ */
+
+int
+Tcl_GetDouble(
+    Tcl_Interp *interp,		/* Interpreter used for error reporting. */
+    const char *src,		/* String containing a floating-point number
+				 * in a form acceptable to
+				 * Tcl_GetDoubleFromObj(). */
+    double *doublePtr)		/* Place to store converted result. */
+{
+    Tcl_Obj obj;
+    int code;
+
+    obj.refCount = 1;
+    obj.bytes = (char *) src;
+    obj.length = strlen(src);
+    obj.typePtr = NULL;
+    
+#ifdef mycode  
+ //------------------------------------------------------------------------   
+    double answerd; int thestatus=1;
+	thestatus = evaluate_d_expression(src,&answerd);
+	if ( thestatus == 0 ) {
+		*doublePtr = answerd;
+		code = TCL_OK;
+		goto outahere2;
+	} else {
+	
+	}
+ //------------------------------------------------------------------------   
+#endif  //mycode
+      
+    code = Tcl_GetDoubleFromObj(interp, &obj, doublePtr);
+#ifdef mycode
+ outahere2:   
+#endif // mycode
+    if (obj.refCount > 1) {
+	Tcl_Panic("invalid sharing of Tcl_Obj on C stack");
+    }
+    TclFreeInternalRep(&obj);
+    return code;
+}
+
+
