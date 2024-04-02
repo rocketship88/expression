@@ -19,11 +19,12 @@
 #else
    #define INT_32 int32_t
    #define INT_64 long long
-   #define DOUBLE_REAL  double
+   #define DOUBLE_REAL double
 #endif
 
 
 // define these, either prior to including this file, or using -D xxxx on the gcc command line
+
 //#define Separate_ll_function  // if defined, we will use the separate long long version for more precision
 //#define Main yes              // includes the main test program if defined
 
@@ -61,6 +62,7 @@ these arrays are used.
 #define ERROR_RECURSION 3
 #define STATUS_OK 0
 
+#define HIGHEST_PREC 6 // highest level, used to allocate stack and set unary's
 #ifndef RECURSION_MAX
 #define RECURSION_MAX 10 // maximum recursion depth
 #endif
@@ -80,6 +82,7 @@ static unsigned char Numbersf[128]; // same but with a decimal point
 static unsigned char Numbershex[128]; // with a-f A-F
 static unsigned char Numbersbin[128]; // just 0,1
 static unsigned char Numbersoct[128]; // just 0..7
+static unsigned char Operators[128]; // just the set of valid characters for an operator or terminal 
 static int Defined = 0;  // indicates these are not setup, setupascii will have to init them
 #else
 static int Defined = 1;  // indicates these are setup below, by doing the dump, so don't need to setup at runtime
@@ -88,7 +91,7 @@ static int Defined = 1;  // indicates these are setup below, by doing the dump, 
 static unsigned char Letters[128] = {
 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x02, 0x03, 
-0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 
+0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x01, 0x00, 0x01, 
 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 
 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x01, 0x00, 
@@ -137,6 +140,14 @@ static unsigned char Numbersoct[128] = {
 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 
 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7e, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 
 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 
+0x7f, 0x7f};
+static unsigned char Operators[128] = {
+0x01, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 
+0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x01, 0x7f, 0x7f, 0x01, 
+0x01, 0x01, 0x7f, 0x01, 0x7f, 0x01, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x7f, 0x01, 0x7f, 0x01, 
+0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 
+0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 
+0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x7f, 
 0x7f, 0x7f};
 
 #endif
@@ -210,14 +221,14 @@ static int mystrcmp (const char *p1, const char *p2)
   const unsigned char *s2 = (const unsigned char *) p2+1;
   unsigned char c1, c2;
   
-  do
-    {
+  do {
+    
       c1 = (unsigned char) *s1++;
       c2 = (unsigned char) *s2++;
-      if (c2 == '\0')
-        break;
-      }
-  while (c1 == c2);
+      if (c2 == '\0')break;
+        
+  } while (c1 == c2);
+  
 
   return c1 - c2;
 }
@@ -508,9 +519,9 @@ static INT_64 mystoll(char* stringIn, char** endp) {
 //              return l;
                 if (endp) *endp = stringIn; // indicate an error on overflow
                 return 0;
-        }
+            }
             l = tempL + code;
-    }
+        }
     }
 
     
@@ -628,8 +639,9 @@ static void setupascii() { // this is our table creator used to tokenize values 
         return;
     }
     int i;
-    char *ascii = "()\n ^*/%+-.abcdefghijklmnopqrstuvwxyzABCDEF0123456789_,&|!<>"; // note . is allowed here for floating point, but will error out in our int routines
+    char *ascii = "()\n ^*/%+-.abcdefghijklmnopqrstuvwxyzABCDEF0123456789_,&|!<>:"; // note . is allowed here for floating point, but will error out in our int routines
     char *numbers = "0123456789abcdefABCDEF"; // all the valid numbers up to hex digits
+    char *operators = ":+-*/)&|^<>%\n"; // all the valid operators or terminals, we'll set null manually
     
     for (i=0; i< 128 ; i++) { // first clear all to 0 or 7f, then fill in from the above ascii and numbers
         Letters[i] = 0;
@@ -638,6 +650,7 @@ static void setupascii() { // this is our table creator used to tokenize values 
         Numbershex[i] =  NOT_IN_SET_7F ;
         Numbersbin[i] =  NOT_IN_SET_7F ;
         Numbersoct[i] =  NOT_IN_SET_7F ;
+        Operators[i]  =  NOT_IN_SET_7F ;
     }
     Numbersf['.'] =  DEC_PNT_7D ;      //  the decimal point  
     Numbersf['e'] =  SCI_EXP_6E ;      //  the exponent  letters
@@ -661,6 +674,11 @@ static void setupascii() { // this is our table creator used to tokenize values 
     for (i=0; i< len ; i++) {
         Letters[ascii[i]] = 1;  
     }
+    len = strlen(operators);
+    for (i=0; i< len ; i++) {
+        Operators[operators[i]] = 1;    
+    }
+    Operators[0] = 1;
     Letters['('] = LEFTPAREN_2; // for functions or plain parenthesis
     Letters[')'] = RIGHTPAREN_3;
     Letters[0] =   4; // if we see a null byte, code it as 4 - not used for now
@@ -691,8 +709,8 @@ static void setupascii() { // this is our table creator used to tokenize values 
 static void dump_arrays(char *filename) {
 static int Defined = 0;  // indicates these are setup
 
-static unsigned char* arry[] = { Letters,Numbers,Numbersf,Numbershex, Numbersbin , Numbersoct };
-static unsigned char* arryname[] = { "Letters","Numbers","Numbersf","Numbershex", "Numbersbin" , "Numbersoct" };
+static unsigned char* arry[] = { Letters,Numbers,Numbersf,Numbershex, Numbersbin , Numbersoct ,Operators};
+static unsigned char* arryname[] = { "Letters","Numbers","Numbersf","Numbershex", "Numbersbin" , "Numbersoct" ,"Operators"};
 int i,j,k,byte;
 
 
@@ -707,7 +725,7 @@ int i,j,k,byte;
             filename, strerror(errno));
         return;
     }
-    for (i=0; i< 6 ; i++) {
+    for (i=0; i< 7 ; i++) {
         printf("\nstatic unsigned char %s[128] = {\n", arryname[i]);
         fprintf(io,"\nstatic unsigned char %s[128] = {\n", arryname[i]);
         for (j = 0,k=1; j < 128; j++,k++) {
@@ -832,7 +850,8 @@ To add a function is simple. There are 3 steps.
 */
 
 
-enum function_codes {eERROR=0,eABS,eINT,eSIN,eCOS, eROUND, eSQRT, eRAD, eFLOOR}; // return one of these for function or an error
+enum function_codes {eERROR=0,eABS,eINT,eSIN,eCOS, eROUND, eSQRT, eRAD, eFLOOR,
+                    eLT, eGT, eEQ, eNE, eLE, eGE}; // return one of these for function or an error
 
 
 
@@ -852,7 +871,7 @@ static int afunc(char* stringIn, int* news) { // parse a function up to opening 
     int i;                  // count of chars not including spaces, limits what we write to buf
     char c;
     char* s = stringIn;
-    for (i=0; i<= 7 ; )  {
+    for (i=0; i<= 7 ; )  { // this is less than the size of buf, should use a symbol however
          c = *s;
          if (  c >= 'a' &&  c <= 'z') {
             *p++ = *s++;
@@ -870,7 +889,7 @@ static int afunc(char* stringIn, int* news) { // parse a function up to opening 
             return eERROR;
         }
     }
-    if ( i < 3 || i > 5 || paren !=1 ) {
+    if ( i < 2 || i > 5 || paren !=1 ) {
         return eERROR;
     }
     *p = '\0';                      // null terminate the buffer
@@ -883,15 +902,41 @@ static int afunc(char* stringIn, int* news) { // parse a function up to opening 
                 return eABS;
             }  
             break;
+        case 'e':
+            if ( mystrcmp(buf,"eq") == 0) {
+                return eEQ;
+            }  
+            break;
         case 'f':
             if ( mystrcmp(buf,"floor") == 0) {
                 return eFLOOR;
             }  
             break;
         
+        case 'g':
+            if ( mystrcmp(buf,"ge") == 0) {
+                return eGE;
+            }  
+            if ( mystrcmp(buf,"gt") == 0) {
+                return eGT;
+            }  
+            break;
         case 'i':
             if ( mystrcmp(buf,"int") == 0 ) {
                 return eINT;
+            }  
+            break;
+        case 'l':
+            if ( mystrcmp(buf,"le") == 0) {
+                return eLE;
+            }  
+            if ( mystrcmp(buf,"lt") == 0) {
+                return eLT;
+            }  
+            break;
+        case 'n':
+            if ( mystrcmp(buf,"ne") == 0) {
+                return eNE;
             }  
             break;
         case 's':
@@ -970,8 +1015,8 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                                                                                             #endif
         DOUBLE_REAL val  ; // the value of the current computation, either on the stack or in x
         char   op   ; // this is one of the litteral operators, but could be any constant
-        char   prec ; // precedence level, currently 5 is the max
-    } stack[6] = { 
+        char   prec ; // precedence level, currently 6 is the max
+    } stack[HIGHEST_PREC+1] = { 
                                                                                             #ifdef Debuga
                                                                                                 NULL, 0,
                                                                                             #endif
@@ -1015,7 +1060,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
     if (c  == '+' || c == '-') { // check for initial unitary + or - 
         x.val = 0.0;
         x.op  = c;
-        x.prec = 5;  // give it highest priority !!! note, need to change this if we add levels
+        x.prec = HIGHEST_PREC;  // give it highest priority 
         *sp++ = x;  // pretend we started with a 0, so it's 0+... or 0-...
         s++;
     
@@ -1078,6 +1123,12 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                         x.val = floor(fval);
                     }
                     break;
+                case eEQ:    x.val = (fval  == 0 ) ? 1 : 0     ; break;                                  
+                case eNE:    x.val = (fval  != 0 ) ? 1 : 0     ; break;
+                case eLT:    x.val = (fval  <  0 ) ? 1 : 0     ; break;
+                case eLE:    x.val = (fval  <= 0 ) ? 1 : 0     ; break;
+                case eGT:    x.val = (fval  >  0 ) ? 1 : 0     ; break;
+                case eGE:    x.val = (fval  >= 0 ) ? 1 : 0     ; break;
                 case eFLOOR: x.val = floor(fval)      ; break;                                  
                 case eSIN:    x.val = sin(fval);      ; break;
                 case eCOS:    x.val = cos(fval);      ; break;
@@ -1101,10 +1152,8 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
             while (*p == ' ') {  // skipping whitespace but incrementing s as well
                 s++; p++;
             }
-            ch = p[0];
-            if ( ch == '+' || ch == '-' || ch == '*' || ch == '/'  || ch == ')' || ch == '&'  || ch == '|' || ch == '\0' || ch == '^' ||  ch == '<' || ch == '>' ||  ch == '%' || ch == '\n') {
-                // anything is ok, checking in order of likelihood probably need another lookup array
-            } else {
+            ch = *p;
+            if ( (ch & 0x80)  || Operators[ch] == NOT_IN_SET_7F) {
                 s++;
                 goto error;// return a status value that also returns the position of the error
             }
@@ -1137,34 +1186,38 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                                                                                                 #ifdef Debug
                                                                                                     printf("%*s  got next operator or terminal  [%c%c] \n",level*3,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
                                                                                                 #endif
-        switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 7 for safety
-            case EXP_OPER:          x.prec = 5; break; // don't forget with unary +/- we set the prec to a litteral 5, above
+        switch (x.op = c) { // only 5 precendence levels so only need a stack of 6, but we allocate 7 for safety
+            case EXP_OPER:          x.prec = 6; break; // don't forget with unary +/- we set the prec to a litteral 6, above
                                                        // if we add more operators with more prec levels, make sure to adjust that too
             case '*':
             case '/':
-            case '%':               x.prec = 4; break;
+            case '%':               x.prec = 5; break;
             
             case '+':
-            case '-':               x.prec = 3; break;
+            case '-':               x.prec = 4; break;
             
             case SHIFTLEFT_OPER:
-            case SHIFTRIGHT_OPER:   x.prec = 2; break;
+            case SHIFTRIGHT_OPER:   x.prec = 3; break;
             
             case '&':
             case '^': // exclusive or
-            case '|':               x.prec = 1; break;
+            case '|':               x.prec = 2; break;
+            case ':':               x.prec = 1; break;
             
             case '\n':
             case '\0':
             case ')':               x.prec = 0; x.op = 0; s--; break; // here on close paren or null char or newline
             default:  goto error; // here on a non valid operator and return a status value that also returns the position of the error
         }
+                                                                                                #ifdef Debug
+                                                                                                    printf("%*s  %s  [%c%c] prec(%d)\n",level*3,".",x.prec==0? "terminal": "operator",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ',x.prec);
+                                                                                                #endif
                                                                                                 #ifdef Debuga
                                                                                                         x.address = NULL;
                                                                                                 #endif
         while (sp > stack && x.prec <= sp[-1].prec) { 
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%.17g\n",level*3,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
+                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp-op(%c)  sp-prec( %d) x.val=%.17g\n",level*3,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
                                                                                                 #endif
              switch ((--sp)->op) {                       // unwind the stack of operations and accum the pending values
                 case '^':            x.val = (DOUBLE_REAL) (llrint(sp->val) ^  llrint(x.val)); break;
@@ -1180,7 +1233,14 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                     error_code = 0x4000; // divide by zero floating error
                     goto error;
                 }
-                x.val = sp->val / x.val; 
+                case ':': 
+                    if (sp->val > x.val) {
+                        x.val = 1;
+                    } else if (sp->val < x.val) {
+                        x.val = -1;
+                    } else {
+                        x.val = 0;
+                    }
                 break;
                 case '+': x.val = sp->val + x.val; break;
                 case '-': x.val = sp->val - x.val; break;
@@ -1197,7 +1257,7 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
 
         *sp++ = x;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%.17g x.op (%c) \n",level*3,".", (sp - stack),x.val, x.op   ); 
+                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%.17g x.op (%c) prec(%d)\n",level*3,".", (sp - stack),x.val, x.op,x.prec   ); 
                                                                                                 #endif
     }
     if (endp) *endp = (char*)s;
@@ -1226,7 +1286,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
         INT_64 val  ; // the value of the current computation, either on the stack or in x
         char   op   ; // this is one of the litteral operators, but could be any constant
         char   prec ; // precedence level, currently 5 is the max
-    } stack[6] = { 
+    } stack[HIGHEST_PREC+1] = { 
                                                                                             #ifdef Debuga
                                                                                                 NULL, 0,
                                                                                             #endif
@@ -1249,8 +1309,10 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
 
     s  = stringIn;
     while (*s == ' ') s++; // skip whitespace
+    
     c = *s;
     sp = stack;
+    
     if ( ++level > RECURSION_MAX) {
                                                                                             #ifdef Debug
                                                                                                 printf("%*s  evaluate_d: exceeded recursion depth %d at %s\n",level*3,".",level,s);
@@ -1258,6 +1320,7 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
         *thestatus = ERROR_RECURSION;
         return 0;
     }
+    
                                                                                             #ifdef Debuga
                                                                                                 x.pushed = (long)0xbeefcafe; // debug
                                                                                             #endif
@@ -1267,14 +1330,16 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
     if (c  == '+' || c == '-') { // check for initial unitary + or - 
         x.val = 0;
         x.op  = c;
-        x.prec = 5;  // give it highest priority !!! note, need to change this if we add levels
+        x.prec = HIGHEST_PREC;  // give it highest priority 
         *sp++ = x;  // pretend we started with a 0, so it's 0+... or 0-...
         s++;
+    
                                                                                             #ifdef Debug
                                                                                                 printf("%*s  push a 0 with unary [%c] op at prec(%d)\n", level*3, ".", c, x.prec);
                                                                                             #endif
     }
     while (1) {
+        
         while (*s == ' ') s++; // skip over spaces, we don't allow tabs here, much faster than using isspace
         if (*s == '(') {       // opening parens, we know they are balanced, we did that check separately
                                                                                             #ifdef Debug
@@ -1311,7 +1376,10 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                 goto error; // return a status value that also returns the position of the error
             }
             if (*s == ')')s++;
+             
+  
              switch (f) { // do the corresponding function on our value HERE to add additional functions
+    
                 case eABS:       
                     if ( fval < 0 ) {
                         fval = -fval;
@@ -1325,6 +1393,13 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                         //x.val = floor(fval);
                     //}
                     //break;
+                case eEQ:    x.val = (fval  == 0 ) ? 1 : 0     ; break;                                  
+                case eNE:    x.val = (fval  != 0 ) ? 1 : 0     ; break;
+                case eLT:    x.val = (fval  <  0 ) ? 1 : 0     ; break;
+                case eLE:    x.val = (fval  <= 0 ) ? 1 : 0     ; break;
+                case eGT:    x.val = (fval  >  0 ) ? 1 : 0     ; break;
+                case eGE:    x.val = (fval  >= 0 ) ? 1 : 0     ; break;
+                //case eRAD:    x.val =fval * (3.141592653589793238462643/180.)     ; break;
                 //case eFLOOR: x.val = floor(fval)      ; break;                                  
                 //case eSIN:    x.val = sin(fval);      ; break;
                 //case eCOS:    x.val = cos(fval);      ; break;
@@ -1348,10 +1423,8 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
             while (*p == ' ') {  // skipping whitespace but incrementing s as well
                 s++; p++;
             }
-            ch = p[0];
-            if ( ch == '+' || ch == '-' || ch == '*' || ch == '/'  || ch == ')' || ch == '&'  || ch == '|' || ch == '\0' || ch == '^' ||  ch == '<' || ch == '>' ||  ch == '%' || ch == '\n') {
-                // anything is ok, checking in order of likelihood probably need another lookup array
-            } else {
+            ch = *p;
+            if ( (ch & 0x80)  || Operators[ch] == NOT_IN_SET_7F) {
                 s++;
                 goto error;// return a status value that also returns the position of the error
             }
@@ -1378,34 +1451,44 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                 c = SHIFTRIGHT_OPER;
             }
         }
+
+        
         s++; // now we must have an operator, it's allways number op, or () op, or func() op
                                                                                                 #ifdef Debug
                                                                                                     printf("%*s  got next operator or terminal  [%c%c] \n",level*3,".",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ');
                                                                                                 #endif
         switch (x.op = c) { // only 5 precendence levels so only need a stack of 5, but we allocate 6 for safety
-            case EXP_OPER:          x.prec = 5; break; // don't forget with unary +/- we set the prec to a litteral 5, above
+            case EXP_OPER:          x.prec = 6; break; // don't forget with unary +/- we set the prec to a litteral 6, above
                                                        // if we add more operators with more prec levels, make sure to adjust that too
             case '*':
             case '/':
-            case '%':               x.prec = 4; break;
+            case '%':               x.prec = 5; break;
+            
             case '+':
-            case '-':               x.prec = 3; break;
+            case '-':               x.prec = 4; break;
+            
             case SHIFTLEFT_OPER:
-            case SHIFTRIGHT_OPER:   x.prec = 2; break;
+            case SHIFTRIGHT_OPER:   x.prec = 3; break;
+            
             case '&':
             case '^': // exclusive or
-            case '|':               x.prec = 1; break;
+            case '|':               x.prec = 2; break;
+            case ':':               x.prec = 1; break;
+            
             case '\n':
             case '\0':
             case ')':               x.prec = 0; x.op = 0; s--; break; // here on close paren or null char or newline
             default:  goto error; // here on a non valid operator and return a status value that also returns the position of the error
         }
+                                                                                                #ifdef Debug
+                                                                                                    printf("%*s  %s  [%c%c] prec(%d)\n",level*3,".",x.prec==0? "terminal": "operator",c=='\n' ? 'n' : c, c=='\n' ? 'l' : ' ',x.prec);
+                                                                                                #endif
                                                                                                 #ifdef Debuga
                                                                                                         x.address = NULL;
                                                                                                 #endif
         while (sp > stack && x.prec <= sp[-1].prec) { 
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp(%c)  sp-1-prec( %d) x.val=%lld\n",level*3,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
+                                                                                                   printf("%*s  stack accum operation sp : [%zd]  sp-op(%c)  sp-prec( %d) x.val=%lld\n",level*3,".", (sp - stack),sp[-1].op ,sp[-1].prec,x.val );
                                                                                                 #endif
              switch ((--sp)->op) {                       // unwind the stack of operations and accum the pending values
                 case '^':            x.val = (INT_64) ((sp->val) ^  (x.val)); break;
@@ -1421,7 +1504,17 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                     error_code = 0x4000; // divide by zero integer error
                     goto error;
                 }
+                
                 x.val = sp->val / x.val; 
+                break; 
+                case ':': 
+                    if (sp->val > x.val) {
+                        x.val = 1;
+                    } else if (sp->val < x.val) {
+                        x.val = -1;
+                    } else {
+                        x.val = 0;
+                    }
                 break;
                 case '+': x.val = sp->val + x.val; break;
                 case '-': x.val = sp->val - x.val; break;
@@ -1435,9 +1528,10 @@ static INT_64 evaluate_ll( char* stringIn, char** endp, int* thestatus,int level
                                                                                                 #endif
         }
         if (!x.op) break;
+
         *sp++ = x;
                                                                                                 #ifdef Debug
-                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%lld x.op (%c) \n",level*3,".", (sp - stack),x.val, x.op   ); 
+                                                                                                   printf("%*s  pushed sp :  [%zd] x.val=%lld x.op (%c) prec(%d)\n",level*3,".", (sp - stack),x.val, x.op,x.prec   ); 
                                                                                                 #endif
     }
     if (endp) *endp = (char*)s;
@@ -1454,7 +1548,10 @@ error:
                                                                                                 #endif
     return 0;
 } // end evaluate_ll
+
 #endif
+
+
 /* 
 
 double  version of the evaluator
