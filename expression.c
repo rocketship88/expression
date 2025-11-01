@@ -1229,10 +1229,12 @@ static DOUBLE_REAL evaluate_d( char* stringIn, char** endp, int* thestatus,int l
                 case '%': x.val = fmod(sp->val, x.val); break;
                 case '*': x.val = sp->val * x.val; break;
                 case '/': 
-                if ( x.val == 0.0 ) {
+                  if ( x.val == 0.0 ) {
                     error_code = 0x4000; // divide by zero floating error
                     goto error;
-                }
+                  }
+		            x.val = sp->val / x.val;
+                  break;
                 case ':': 
                     if (sp->val > x.val) {
                         x.val = 1;
